@@ -1,0 +1,70 @@
+name: aws-cdk-deploy
+'on':
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  id-token: write
+  contents: read
+
+  # Allows you to run this workflow manually from the Actions tab
+  # workflow_dispatch:
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  cdk-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+
+      - name: NPM Install
+        run: npm ci
+
+      - name: Install aws-cdk
+        run: npm install -g aws-cdk
+
+      # - name: Lint
+      #   run: npm run lint
+        
+      - name: Install dependencies
+        run: npm install
+
+      - name : Configure AWS credentials - DEVELOPMENT Environment
+        if: github.ref == 'refs/heads/dev'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME_DEV}}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name : Deploying in Dev Environment
+        if: github.ref == 'refs/heads/dev'
+        run: |
+             npm run build && cdk synth
+             cdk deploy --require-approval never
+
+      - name : Configure AWS credentials - PRODUCTION Environment
+        if: github.ref == 'refs/heads/main'
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          # role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME_PROD }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_prod }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_prod }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name : Deploying in PRODUCTION Environment
+        if: github.ref == 'refs/heads/main'
+        run: |
+             npm run build && cdk synth
+             cdk deploy --require-approval never
